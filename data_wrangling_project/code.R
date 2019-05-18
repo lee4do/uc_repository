@@ -1,0 +1,101 @@
+# Packages ----------------------------------------------------------------
+
+library(readr) # used to import csv files
+library(dplyr) # used to manipulate data
+library(tidyr) # used to tidy data
+library(ggplot2) # used to creat data visualization
+
+
+# Data Import -------------------------------------------------------------
+
+clean_cheese <- read_csv("data/clean_cheese.csv")
+fluid_milk_sales <- read_csv("data/fluid_milk_sales.csv")
+pop <- read_csv("data/pop.csv")
+
+
+sapply(mget(ls()), dim)
+sapply(mget(ls()), summary)
+sapply(mget(ls()), head)
+sapply(mget(ls()), tail)
+
+
+# Data Manipulation -------------------------------------------------------
+
+clean_cheese <- clean_cheese[, c(1:10)]
+names(clean_cheese) <- c("year", "cheddar", "american_other", "mozzarella",
+                         "italian_other", "swiss", "brick", "muenster",
+                         "cream_and_neufchatel", "blue")
+clean_cheese <- clean_cheese %>%
+  gather("cheese_type", "pounds", -1)
+
+american <- c("cheddar", "american_other")
+italian <- c("mozzarella", "italian_other")
+clean_cheese$category <- 
+  case_when(
+    clean_cheese$cheese_type %in% american ~ "american",
+    clean_cheese$cheese_type %in% italian ~ "italian",
+    TRUE ~ "other"
+  )
+clean_cheese <- clean_cheese[,c(1, 4, 2, 3)]
+clean_cheese$category <- as.factor(clean_cheese$category)
+clean_cheese$cheese_type <- as.factor(clean_cheese$cheese_type)
+
+
+fluid_milk_sales <- fluid_milk_sales %>%
+  spread(milk_type, pounds)
+fluid_milk_sales <- fluid_milk_sales[, c(1:8, 10)]
+names(fluid_milk_sales) <- c("year", "buttermilk", "eggnog", 
+                         "flavored_not_whole", "flavored_whole", 
+                         "low_fat_1%", "reduced_fat_2%", "skim",
+                         "whole")
+fluid_milk_sales <- fluid_milk_sales %>%
+  gather("milk_type", "pounds", -1)
+pop$population <- pop$population * 1000000
+fluid_milk_sales <- fluid_milk_sales %>%
+  left_join(pop, by = "year") %>%
+  mutate(
+    pounds = pounds / population
+  ) %>%
+  select(
+    year,
+    milk_type,
+    pounds
+  )
+fluid_milk_sales$milk_type <- as.factor(fluid_milk_sales$milk_type)
+
+
+# Exploratory Data Analysis -----------------------------------------------
+
+clean_cheese %>%
+  ggplot(aes(x = year, y = pounds, col = cheese_type)) +
+  geom_line() +
+  theme_minimal()
+clean_cheese %>%
+  group_by(year, category) %>%
+  summarise(pounds = sum(pounds, na.rm = TRUE)) %>%
+  ggplot(aes(x = year, y = pounds, col = category)) +
+  geom_line() +
+  theme_minimal()
+
+
+fluid_milk_sales %>%
+  ggplot(aes(x = year, y = pounds, col = milk_type)) +
+  geom_line() +
+  theme_minimal()
+
+
+cheese_year <- 
+  clean_cheese %>%
+    group_by(year) %>%
+    summarise(cheese = sum(pounds, na.rm = TRUE))
+milk_year <-
+  fluid_milk_sales %>%
+    group_by(year) %>%
+    summarise(beverage_milk = sum(pounds, na.rm = TRUE))
+cheese_year %>%
+  left_join(milk_year, by = "year") %>%
+  gather(type, pounds, -1) %>%
+  ggplot(aes(x = year, y = pounds, col = type)) +
+  geom_line() +
+  theme_minimal()
+

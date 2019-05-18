@@ -1,0 +1,272 @@
+---
+title: "Milk product analysis"
+author: "Dongjoo Lee"
+date: "April 27, 2019"
+output: 
+  html_document:
+    theme: flatly
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+This is a R Markdown document for milk product analysis.
+
+Please follow the each tab in order.
+
+## {.tabset .tabset-fade}
+
+### Introduction
+
+Though Americans comsume a good amount of milk products, there is a stockpile of cheese that is massive enough to wrap around the U.S. Capitol.
+
+This happened because farmers have overproduced milk thanks to its high price and failure to anticipate that American consume less milk than before. 
+
+So the farmers turned their extra milks into cheese because it is less perishable and stay fresh for longer period.
+
+I decided to investigate the milk and cheese consumption data to get insights about America's milk product consumption by providing data visualization and by doing so, to allow users to understand what is the best way to handle the glut of milk.
+
+
+### Packages used
+
+``` {r message = FALSE}
+library(readr)   # used to import csv files
+
+library(dplyr)   # used to manipulate data
+
+library(tidyr)   # used to tidy data
+
+library(ggplot2) # used to creat data visualization
+```
+
+
+
+### Data manipulation
+
+I acquired the data from [Tidy Tuesday Dariy Data](https://github.com/rfordatascience/tidytuesday/tree/master/data/2019/2019-01-29).
+
+However, they are providing the tidied data that are available from [USDA Dairy Data](https://www.ers.usda.gov/data-products/dairy-data/).
+
+Also, information about how the data is assembled can be founded from [here](https://www.ers.usda.gov/data-products/dairy-data/documentation/#Loc7).
+
+<br>
+
+#### Data importation
+
+``` {r message = FALSE}
+clean_cheese <- read_csv("data/clean_cheese.csv")
+
+fluid_milk_sales <- read_csv("data/fluid_milk_sales.csv")
+
+pop <- read_csv("data/pop.csv")
+```
+
+Let's start by importing the data. The first data is about the cheese consumption per capita and the second data is about the beverage milk consumption.
+
+I am going to compare the milk consumption per capita with the beverage milk consumption per capita. To have a fair comparison, I needed the same scale. I looked for how the data of cheese consumption per capita is measured and used same calculation to get beverage milk consumption per capita.
+
+For this reason, the third data about the resident population plus the Armed Forces overseas is collected from [here](https://www.ers.usda.gov/webdocs/DataFiles/50472/pop.xls?v=8836.6).
+
+> ERS provides annual per capita consumption estimates for major dairy products. For most products, per capita consumption is calculated by dividing domestic disappearance by the U.S. resident population plus armed forces overseas.
+
+<br>
+
+#### Learn about the data
+
+``` {r}
+sapply(mget(ls()), dim)
+
+sapply(mget(ls()), summary)
+
+sapply(mget(ls()), head)
+
+sapply(mget(ls()), tail)
+```
+
+One important point I could noticed was that Blue cheese values from year 1998 to 2009 are missing.
+
+I searched for the reason why the values are missing and found this foot note from [the original data](https://www.ers.usda.gov/webdocs/DataFiles/48685/cheese_per_cap.xlsx?v=0):
+
+> NA= not available; USDA, National Agricultural Statistics Service did not report blue cheese production from 1998 through 2009 to avoid disclosing data from individual operations.
+
+So I decided to leave the missing values for now because I felt that they explain what they exactly mean.
+
+<br>
+
+#### Clean & tidying cheese data
+
+``` {r}
+clean_cheese <- clean_cheese[, c(1:10)]
+
+names(clean_cheese) <- c("year", "cheddar", "american_other", "mozzarella",
+                         "italian_other", "swiss", "brick", "muenster",
+                         "cream_and_neufchatel", "blue")
+
+clean_cheese <- 
+  clean_cheese %>%
+    gather("cheese_type", "pounds", -1)
+
+american <- c("cheddar", "american_other")
+
+italian <- c("mozzarella", "italian_other")
+
+clean_cheese$category <- 
+  case_when(
+    clean_cheese$cheese_type %in% american ~ "american",
+    clean_cheese$cheese_type %in% italian ~ "italian",
+    TRUE ~ "other"
+  )
+
+clean_cheese <- clean_cheese[,c(1, 4, 2, 3)]
+
+clean_cheese$category <- as.factor(clean_cheese$category)
+
+clean_cheese$cheese_type <- as.factor(clean_cheese$cheese_type)
+```
+
+To clean the cheese data to perform my analysis, I needed to leave only the cheese from cows. I removed unnecessary columns with the first code.
+
+Second code is written just to have the column name format that I prefer.
+
+Third code is written to tidy the data.
+
+Then, I wanted to have another column that categorizes the type of cheese. other type means other types of cheeses than american and italian typically from cows.
+
+I reordered the column and made the category and cheese_type column into factor data type.
+
+<br>
+
+#### Clean & tidying beverage milk data
+
+``` {r}
+fluid_milk_sales <- fluid_milk_sales %>%
+  spread(milk_type, pounds)
+
+fluid_milk_sales <- fluid_milk_sales[, c(1:8, 10)]
+
+names(fluid_milk_sales) <- c("year", "buttermilk", "eggnog", 
+                         "flavored_not_whole", "flavored_whole", 
+                         "low_fat_1%", "reduced_fat_2%", "skim",
+                         "whole")
+
+fluid_milk_sales <- fluid_milk_sales %>%
+  gather("milk_type", "pounds", -1)
+
+pop$population <- pop$population * 1000000
+
+fluid_milk_sales <- 
+  fluid_milk_sales %>%
+    left_join(pop, by = "year") %>%
+    mutate(
+      pounds = pounds / population
+    ) %>%
+    select(
+      year,
+      milk_type,
+      pounds
+    )
+
+fluid_milk_sales$milk_type <- as.factor(fluid_milk_sales$milk_type)
+```
+
+I did pretty much the same thing like I did for cheese data to beverage milk data.
+
+One thing to notice from here is that, as I mentioned before, I made the same scale for the two main dataset for fair comparison.
+
+The population data I got was in a million to have actual value, I multiplied 1,000,000 to that vector.
+
+Then I coded to have a pounds value that represents beverage milk consumption per capital in pounds.
+
+<br>
+
+### Exploratory data analysis
+
+#### Cheese consumption
+
+``` {r}
+clean_cheese %>%
+  ggplot(aes(x = year, y = pounds, col = cheese_type)) +
+  geom_line() +
+  theme_minimal()
+```
+
+This line graph shows the consumption of each cheese type by year.
+
+The most noticable point is the dramatic increase of consumption of mozzarella cheese.
+
+<br>
+
+``` {r}
+clean_cheese %>%
+  group_by(year, category) %>%
+  summarise(pounds = sum(pounds, na.rm = TRUE)) %>%
+  ggplot(aes(x = year, y = pounds, col = category)) +
+  geom_line() +
+  theme_minimal()
+```
+
+This second line graph shows the consumption of each cheese category by year.
+
+The consumption for all of three categories are increasing.
+
+<br>
+
+#### Beverage milk consumption
+
+``` {r}
+fluid_milk_sales %>%
+  ggplot(aes(x = year, y = pounds, col = milk_type)) +
+  geom_line() +
+  theme_minimal()
+```
+
+This line graph shows the consumption of each beverage milk products by year.
+
+There is a dramatic decrease in consumption of whole milk.
+
+<br>
+
+#### Cheese & beverage milk consumption
+
+``` {r message = FALSE}
+cheese_year <- 
+  clean_cheese %>%
+    group_by(year) %>%
+    summarise(cheese = sum(pounds, na.rm = TRUE))
+milk_year <-
+  fluid_milk_sales %>%
+    group_by(year) %>%
+    summarise(beverage_milk = sum(pounds, na.rm = TRUE))
+cheese_year %>%
+  left_join(milk_year, by = "year") %>%
+  gather(type, pounds, -1) %>%
+  ggplot(aes(x = year, y = pounds, col = type)) +
+  geom_line() +
+  theme_minimal()
+```
+
+For better comparison of cheese and milk consumption, I created this line graph.
+
+We can see that the milk consumption experienced huge decrease, whereas the cheese consumption experienced increase.
+
+However, still the demand for cheese is not too great.
+
+<br>
+
+### Summary
+
+The analysis helped me better understand the consumption of milk products.
+
+By creating the visualization, we could better see that the milk consumption actually experienced huge decrease, while the cheese consumption experienced the opposite. However, we can conclude that the farmers' decision to turn their extra milk into cheese won't be a perfect solution of the overproduction of milk. 
+
+However, at least we could find out that if the farmers want to turn their extra milk to cheese, it would be beneficial to turn it into mozarella cheese!
+
+
+
+Thank you.
+
+
+
+
+

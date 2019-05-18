@@ -1,0 +1,23 @@
+{
+    "collab_server" : "",
+    "contents" : "",
+    "created" : 1556382955167.000,
+    "dirty" : false,
+    "encoding" : "UTF-8",
+    "folds" : "",
+    "hash" : "2833330720",
+    "id" : "474D8E8",
+    "lastKnownWriteTime" : 1556428685,
+    "last_content_update" : -2147483648,
+    "path" : "~/GitHub/2019_BANA7025_leed_finalproject/code.R",
+    "project_path" : "code.R",
+    "properties" : {
+        "cursorPosition" : "91,0",
+        "scrollLine" : "79",
+        "tempName" : "Untitled1"
+    },
+    "relative_order" : 1,
+    "source_on_save" : false,
+    "source_window" : "",
+    "type" : "r_source"
+}
